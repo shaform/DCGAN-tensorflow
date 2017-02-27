@@ -23,9 +23,9 @@ flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image s
 flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("iters_D", 5, "[5]")
-flags.DEFINE_float("clamp_lower", -0.01, "[-0.01]")
-flags.DEFINE_float("clamp_upper", 0.01, "[0.01]")
+flags.DEFINE_integer("iters_D", 5, "How many iterations discriminator is trained for each generator iteration [5]")
+flags.DEFINE_float("clamp_lower", -0.01, "Clip the weight for discriminator [-0.01]")
+flags.DEFINE_float("clamp_upper", 0.01, "Clip the weight for discriminator [0.01]")
 flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of for discriminator [0.0002]")
 flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of for generator [0.0002]")
 FLAGS = flags.FLAGS
@@ -62,7 +62,9 @@ def main(_):
           input_fname_pattern=FLAGS.input_fname_pattern,
           is_crop=FLAGS.is_crop,
           checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir)
+          sample_dir=FLAGS.sample_dir,
+          clamp_lower=FLAGS.clamp_lower,
+          clamp_upper=FLAGS.clamp_upper)
     else:
       dcgan = DCGAN(
           sess,
@@ -76,7 +78,9 @@ def main(_):
           input_fname_pattern=FLAGS.input_fname_pattern,
           is_crop=FLAGS.is_crop,
           checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir)
+          sample_dir=FLAGS.sample_dir,
+          clamp_lower=FLAGS.clamp_lower,
+          clamp_upper=FLAGS.clamp_upper)
 
     if FLAGS.is_train:
       dcgan.train(FLAGS)
