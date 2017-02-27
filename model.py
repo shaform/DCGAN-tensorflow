@@ -181,7 +181,7 @@ class DCGAN(object):
       else:
         sample_inputs = np.array(sample).astype(np.float32)
 
-    counter = 1
+    self.counter = 1
     start_time = time.time()
 
     if self.load(self.checkpoint_dir):
@@ -189,21 +189,24 @@ class DCGAN(object):
     else:
       print(" [!] Load failed...")
 
-    for epoch in xrange(config.epoch):
-      if config.dataset == 'mnist':
-        batch_idxs = min(len(data_X), config.train_size) // config.batch_size
-      else:
-        data = glob(os.path.join(
-          "./data", config.dataset, self.input_fname_pattern))
-        batch_idxs = min(len(data), config.train_size) // config.batch_size
+    if config.dataset == 'mnist':
+      batch_idxs = min(len(data_X), config.train_size) // config.batch_size
+    else:
+      data = glob(os.path.join(
+        "./data", config.dataset, self.input_fname_pattern))
+      batch_idxs = min(len(data), config.train_size) // config.batch_size
 
+    start_epoch = (self.counter * config.iters_D + min(25, self.counter) *
+            max(0, 100 - config.iters_D) + (self.counter // 500) * max(0,
+                100 - config.iters_D)) // batch_idxs
+    for epoch in xrange(start_epoch, config.epoch):
       idx = 0
       while idx < batch_idxs:
-        if counter <= 25 or counter % 500 == 0:
+        if self.counter <= 25 or self.counter % 500 == 0:
             iters_D = 100
         else:
             iters_D = config.iters_D
-        print('n_D_iters =', iters_D, 'counter =', counter)
+        print('n_D_iters =', iters_D, 'counter =', self.counter)
         idx_D = 0
         while idx_D < iters_D and idx < batch_idxs:
           if config.dataset == 'mnist':
@@ -235,12 +238,12 @@ class DCGAN(object):
                 self.z: batch_z,
                 self.y:batch_labels,
               })
-            self.writer.add_summary(summary_str, counter)
+            self.writer.add_summary(summary_str, self.counter)
           else:
             # Update D network
             _, summary_str, _ = self.sess.run([d_optim, self.d_sum, self.clip_d],
               feed_dict={ self.inputs: batch_images, self.z: batch_z })
-            self.writer.add_summary(summary_str, counter)
+            self.writer.add_summary(summary_str, self.counter)
           idx += 1
           idx_D += 1
 
@@ -251,7 +254,7 @@ class DCGAN(object):
               self.z: batch_z,
               self.y:batch_labels,
             })
-          self.writer.add_summary(summary_str, counter)
+          self.writer.add_summary(summary_str, self.counter)
 
           errD_fake = self.d_loss_fake.eval({
               self.z: batch_z,
@@ -269,23 +272,23 @@ class DCGAN(object):
           # Update G network
           _, summary_str = self.sess.run([g_optim, self.g_sum],
             feed_dict={ self.z: batch_z })
-          self.writer.add_summary(summary_str, counter)
+          self.writer.add_summary(summary_str, self.counter)
 
           # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
           _, summary_str = self.sess.run([g_optim, self.g_sum],
             feed_dict={ self.z: batch_z })
-          self.writer.add_summary(summary_str, counter)
+          self.writer.add_summary(summary_str, self.counter)
 
           errD_fake = self.d_loss_fake.eval({ self.z: batch_z })
           errD_real = self.d_loss_real.eval({ self.inputs: batch_images })
           errG = self.g_loss.eval({self.z: batch_z})
 
-        counter += 1
+        self.counter += 1
         print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
           % (epoch, idx, batch_idxs,
             time.time() - start_time, errD_fake+errD_real, errG))
 
-        if np.mod(counter, 100) == 1:
+        if np.mod(self.counter, 100) == 1:
           if config.dataset == 'mnist':
             samples, d_loss, g_loss = self.sess.run(
               [self.sampler, self.d_loss, self.g_loss],
@@ -313,8 +316,8 @@ class DCGAN(object):
             except:
               print("one pic error!...")
 
-        if np.mod(counter, 500) == 2:
-          self.save(config.checkpoint_dir, counter)
+        if np.mod(self.counter, 500) == 2:
+          self.save(config.checkpoint_dir, self.counter)
 
   def discriminator(self, image, y=None, reuse=False):
     with tf.variable_scope("discriminator") as scope:
@@ -521,6 +524,7 @@ class DCGAN(object):
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
       self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
       print(" [*] Success to read {}".format(ckpt_name))
+      self.counter = int(ckpt_name.split('-')[-1])
       return True
     else:
       print(" [*] Failed to find a checkpoint")
